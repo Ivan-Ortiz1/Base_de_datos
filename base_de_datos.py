@@ -1,12 +1,42 @@
 import requests
 from bs4 import BeautifulSoup
+import time
 
-url_base = "http://books.toscrape.com/catalogue/page-{}.html"
+# === CONFIGURACIÓN ===
+API_KEY = "AIzaSyDx8aRn8ycrQhFm78dvxysNzJKiK-bCgNQ"
 headers = {"User-Agent": "Mozilla/5.0"}
+url_base = "http://books.toscrape.com/catalogue/page-{}.html"
+
+# Cache para no repetir búsquedas de autor
+cache_autores = {}
+
+
+def buscar_autor(titulo):
+    if titulo in cache_autores:
+        return cache_autores[titulo]
+
+    url = "https://www.googleapis.com/books/v1/volumes"
+    params = {"q": f"intitle:{titulo}", "key": API_KEY, "maxResults": 1}
+
+    try:
+        response = requests.get(url, params=params, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+        if "items" in data:
+            volumen = data["items"][0]["volumeInfo"]
+            autores = volumen.get("authors", ["Desconocido"])
+            autor = ", ".join(autores)
+        else:
+            autor = "No encontrado"
+    except Exception:
+        autor = "Error API"
+
+    cache_autores[titulo] = autor
+    time.sleep(1)
+    return autor
 
 
 def obtener_detalle_libro(url_relativa):
-    # Construir URL absoluta
     url_libro = "http://books.toscrape.com/catalogue/" + url_relativa.lstrip("./")
 
     try:
@@ -52,7 +82,8 @@ def obtener_libros_por_rating(rating_objetivo="One", paginas=5):
                 precio = libro.find("p", class_="price_color").text
                 url_relativa = libro.h3.a["href"]
                 genero, stock, url_completo = obtener_detalle_libro(url_relativa)
-                libros.append((titulo, precio, genero, stock, url_completo))
+                autor = buscar_autor(titulo)
+                libros.append((autor, titulo, precio, genero, stock, url_completo))
 
     return libros
 
@@ -60,19 +91,18 @@ def obtener_libros_por_rating(rating_objetivo="One", paginas=5):
 def imprimir_libros(lista, descripcion):
     if lista:
         print(f"\n{descripcion}\n")
-        for titulo, precio, genero, stock, link in lista:
+        for autor, titulo, precio, genero, stock, link in lista:
             print(
-                f"Titulo: {titulo} - Precio: {precio} - Género: {genero} - Stock: {stock}\nLink: {link}\n"
+                f"Autor: {autor}\nTítulo: {titulo}\nPrecio: {precio}\nGénero: {genero}\nStock: {stock}\nLink: {link}\n"
             )
     else:
         print(f"¡No se encontraron {descripcion.lower()}!")
 
 
 # --- Ejecutar búsquedas ---
-libros_1 = obtener_libros_por_rating("One", paginas=5)
-libros_3 = obtener_libros_por_rating("Three", paginas=5)
-libros_5 = obtener_libros_por_rating("Five", paginas=5)
-
+libros_1 = obtener_libros_por_rating("One", paginas=3)
+libros_3 = obtener_libros_por_rating("Three", paginas=3)
+libros_5 = obtener_libros_por_rating("Five", paginas=3)
 
 # --- Imprimir resultados ---
 imprimir_libros(libros_1, "Libros con rating de 1 estrella encontrados:")

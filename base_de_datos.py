@@ -1,17 +1,19 @@
+import os
+import time
 import requests
 from bs4 import BeautifulSoup
-import time
+from dotenv import load_dotenv
 
-# === CONFIGURACIÓN ===
-API_KEY = "AIzaSyDx8aRn8ycrQhFm78dvxysNzJKiK-bCgNQ"
-headers = {"User-Agent": "Mozilla/5.0"}
+# Cargar variables de entorno
+load_dotenv()
+API_KEY = os.getenv("GOOGLE_BOOKS_API_KEY")
+
 url_base = "http://books.toscrape.com/catalogue/page-{}.html"
-
-# Cache para no repetir búsquedas de autor
+headers = {"User-Agent": "Mozilla/5.0"}
 cache_autores = {}
 
 
-def buscar_autor(titulo):
+def buscar_autor_google_books(titulo):
     if titulo in cache_autores:
         return cache_autores[titulo]
 
@@ -44,15 +46,16 @@ def obtener_detalle_libro(url_relativa):
         detalle.raise_for_status()
         soup = BeautifulSoup(detalle.text, "html.parser")
 
-        # Género
+        # Buscar género
         breadcrumb = soup.select("ul.breadcrumb li a")
         genero = breadcrumb[2].text if len(breadcrumb) >= 3 else "Desconocido"
 
-        # Stock
+        # Buscar stock
         tabla = soup.find("table", class_="table table-striped")
         stock = (
             tabla.find_all("tr")[5].find("td").text.strip() if tabla else "Sin stock"
         )
+
     except Exception:
         genero = "Desconocido"
         stock = "Sin stock"
@@ -81,8 +84,10 @@ def obtener_libros_por_rating(rating_objetivo="One", paginas=5):
                 titulo = libro.h3.a["title"]
                 precio = libro.find("p", class_="price_color").text
                 url_relativa = libro.h3.a["href"]
+
                 genero, stock, url_completo = obtener_detalle_libro(url_relativa)
-                autor = buscar_autor(titulo)
+                autor = buscar_autor_google_books(titulo)
+
                 libros.append((autor, titulo, precio, genero, stock, url_completo))
 
     return libros
@@ -100,9 +105,9 @@ def imprimir_libros(lista, descripcion):
 
 
 # --- Ejecutar búsquedas ---
-libros_1 = obtener_libros_por_rating("One", paginas=3)
-libros_3 = obtener_libros_por_rating("Three", paginas=3)
-libros_5 = obtener_libros_por_rating("Five", paginas=3)
+libros_1 = obtener_libros_por_rating("One", paginas=5)
+libros_3 = obtener_libros_por_rating("Three", paginas=5)
+libros_5 = obtener_libros_por_rating("Five", paginas=5)
 
 # --- Imprimir resultados ---
 imprimir_libros(libros_1, "Libros con rating de 1 estrella encontrados:")

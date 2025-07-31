@@ -105,11 +105,103 @@ def imprimir_libros(lista, descripcion):
 
 
 # --- Ejecutar búsquedas ---
-libros_1 = obtener_libros_por_rating("One", paginas=5)
-libros_3 = obtener_libros_por_rating("Three", paginas=5)
-libros_5 = obtener_libros_por_rating("Five", paginas=5)
+libros_1 = obtener_libros_por_rating("One", paginas=1)
+libros_3 = obtener_libros_por_rating("Three", paginas=1)
+libros_5 = obtener_libros_por_rating("Five", paginas=1)
 
 # --- Imprimir resultados ---
 imprimir_libros(libros_1, "Libros con rating de 1 estrella encontrados:")
 imprimir_libros(libros_3, "Libros con rating de 3 estrellas encontrados:")
 imprimir_libros(libros_5, "Libros con rating de 5 estrellas encontrados:")
+
+
+import sqlite3
+
+# --- Conectar a la base de datos (se crea si no existe) ---
+conn = sqlite3.connect("libros.db")
+cursor = conn.cursor()
+
+# --- Crear tablas normalizadas ---
+cursor.executescript(
+    """
+CREATE TABLE IF NOT EXISTS autores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS generos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS libros (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    titulo TEXT,
+    precio TEXT,
+    stock TEXT,
+    url TEXT,
+    genero_id INTEGER,
+    FOREIGN KEY (genero_id) REFERENCES generos(id)
+);
+
+CREATE TABLE IF NOT EXISTS autor_libro (
+    autor_id INTEGER,
+    libro_id INTEGER,
+    PRIMARY KEY (autor_id, libro_id),
+    FOREIGN KEY (autor_id) REFERENCES autores(id),
+    FOREIGN KEY (libro_id) REFERENCES libros(id)
+);
+"""
+)
+
+
+# --- Función para insertar o recuperar ID de género/autor ---
+def obtener_o_insertar_id(nombre, tabla):
+    cursor.execute(f"SELECT id FROM {tabla} WHERE nombre = ?", (nombre,))
+    resultado = cursor.fetchone()
+    if resultado:
+        return resultado[0]
+    cursor.execute(f"INSERT INTO {tabla} (nombre) VALUES (?)", (nombre,))
+    return cursor.lastrowid
+
+
+# --- Función para insertar un libro y sus relaciones ---
+def insertar_libro(autor_str, titulo, precio, genero_str, stock, url):
+    # --- Verificar si el libro ya está en la base ---
+    cursor.execute("SELECT id FROM libros WHERE titulo = ? AND url = ?", (titulo, url))
+    if cursor.fetchone():
+        print(f"🔁 Libro duplicado ignorado: {titulo}")
+        return
+
+    # 1. Insertar o buscar el género
+    genero_id = obtener_o_insertar_id(genero_str, "generos")
+
+    # 2. Insertar el libro
+    cursor.execute(
+        """
+        INSERT INTO libros (titulo, precio, stock, url, genero_id)
+        VALUES (?, ?, ?, ?, ?)
+    """,
+        (titulo, precio, stock, url, genero_id),
+    )
+    libro_id = cursor.lastrowid
+
+    # 3. Insertar autores y relacionarlos
+    for nombre_autor in [a.strip() for a in autor_str.split(",")]:
+        autor_id = obtener_o_insertar_id(nombre_autor, "autores")
+        cursor.execute(
+            """
+            INSERT OR IGNORE INTO autor_libro (autor_id, libro_id)
+            VALUES (?, ?)
+        """,
+            (autor_id, libro_id),
+        )
+
+    conn.commit()
+
+
+# --- Insertar libros con rating 1, 3 y 5 ---
+for libro in libros_1 + libros_3 + libros_5:
+    insertar_libro(*libro)
+
+print("\n✅ Libros insertados correctamente en la base de datos.")

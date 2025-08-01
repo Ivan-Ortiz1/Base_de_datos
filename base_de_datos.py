@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS libros (
     precio TEXT,
     stock TEXT,
     url TEXT,
-    rating TEXT,
+    rating INTEGER,
     genero_id INTEGER,
     FOREIGN KEY (genero_id) REFERENCES generos(id)
 );
@@ -51,6 +51,9 @@ CREATE TABLE IF NOT EXISTS autor_libro (
 );
 """
 )
+
+# --- Mapear rating de texto a número ---
+RATING_MAP = {"One": 1, "Two": 2, "Three": 3, "Four": 4, "Five": 5}
 
 
 # --- Funciones ---
@@ -96,7 +99,6 @@ def obtener_detalle_libro(url_relativa):
         stock = (
             tabla.find_all("tr")[5].find("td").text.strip() if tabla else "Sin stock"
         )
-
     except Exception:
         genero = "Desconocido"
         stock = "Sin stock"
@@ -117,10 +119,10 @@ def obtener_total_paginas():
                 return int(partes[1].strip())
     except Exception as e:
         print("⚠️ Error al obtener total de páginas:", e)
-    return 1  # En caso de fallo, por defecto 1
+    return 1
 
 
-def obtener_libros_por_rating(rating_objetivo="One", paginas=5):
+def obtener_libros_por_rating(rating_objetivo="One", paginas=1):
     libros = []
 
     for pagina in range(1, paginas + 1):
@@ -136,8 +138,9 @@ def obtener_libros_por_rating(rating_objetivo="One", paginas=5):
         articulos = soup.find_all("article", class_="product_pod")
 
         for libro in articulos:
-            rating = libro.find("p", class_="star-rating")["class"][1]
-            if rating == rating_objetivo:
+            rating_texto = libro.find("p", class_="star-rating")["class"][1]
+            if rating_texto == rating_objetivo:
+                rating_numero = RATING_MAP.get(rating_texto, 0)
                 titulo = libro.h3.a["title"]
                 precio = libro.find("p", class_="price_color").text
                 url_relativa = libro.h3.a["href"]
@@ -146,7 +149,7 @@ def obtener_libros_por_rating(rating_objetivo="One", paginas=5):
                 autor = buscar_autor_google_books(titulo)
 
                 libros.append(
-                    (autor, titulo, precio, genero, stock, url_completo, rating)
+                    (autor, titulo, precio, genero, stock, url_completo, rating_numero)
                 )
 
     return libros
@@ -203,9 +206,10 @@ def imprimir_libros(lista, descripcion):
 
 
 # --- Scraping e inserción ---
-libros_1 = obtener_libros_por_rating("One", paginas=obtener_total_paginas)
-libros_3 = obtener_libros_por_rating("Three", paginas=obtener_total_paginas)
-libros_5 = obtener_libros_por_rating("Five", paginas=obtener_total_paginas)
+total_paginas = obtener_total_paginas()
+libros_1 = obtener_libros_por_rating("One", paginas=total_paginas)
+libros_3 = obtener_libros_por_rating("Three", paginas=total_paginas)
+libros_5 = obtener_libros_por_rating("Five", paginas=total_paginas)
 
 imprimir_libros(libros_1, "Libros con rating de 1 estrella encontrados:")
 imprimir_libros(libros_3, "Libros con rating de 3 estrellas encontrados:")

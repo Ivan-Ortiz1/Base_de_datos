@@ -104,6 +104,22 @@ def obtener_detalle_libro(url_relativa):
     return genero, stock, url_libro
 
 
+def obtener_total_paginas():
+    try:
+        response = requests.get(url_base.format(1), headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        texto_paginacion = soup.select_one("li.current")
+        if texto_paginacion:
+            texto = texto_paginacion.text.strip()
+            partes = texto.split("of")
+            if len(partes) == 2:
+                return int(partes[1].strip())
+    except Exception as e:
+        print("⚠️ Error al obtener total de páginas:", e)
+    return 1  # En caso de fallo, por defecto 1
+
+
 def obtener_libros_por_rating(rating_objetivo="One", paginas=5):
     libros = []
 
@@ -187,9 +203,9 @@ def imprimir_libros(lista, descripcion):
 
 
 # --- Scraping e inserción ---
-libros_1 = obtener_libros_por_rating("One", paginas=3)
-libros_3 = obtener_libros_por_rating("Three", paginas=3)
-libros_5 = obtener_libros_por_rating("Five", paginas=3)
+libros_1 = obtener_libros_por_rating("One", paginas=obtener_total_paginas)
+libros_3 = obtener_libros_por_rating("Three", paginas=obtener_total_paginas)
+libros_5 = obtener_libros_por_rating("Five", paginas=obtener_total_paginas)
 
 imprimir_libros(libros_1, "Libros con rating de 1 estrella encontrados:")
 imprimir_libros(libros_3, "Libros con rating de 3 estrellas encontrados:")

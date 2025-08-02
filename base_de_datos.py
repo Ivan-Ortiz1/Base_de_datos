@@ -208,14 +208,18 @@ def imprimir_libros(lista, descripcion):
 # --- Scraping e inserción ---
 total_paginas = obtener_total_paginas()
 libros_1 = obtener_libros_por_rating("One", paginas=total_paginas)
+libros_2 = obtener_libros_por_rating("Two", paginas=total_paginas)
 libros_3 = obtener_libros_por_rating("Three", paginas=total_paginas)
+libros_4 = obtener_libros_por_rating("Four", paginas=total_paginas)
 libros_5 = obtener_libros_por_rating("Five", paginas=total_paginas)
 
 imprimir_libros(libros_1, "Libros con rating de 1 estrella encontrados:")
+imprimir_libros(libros_2, "Libros con rating de 2 estrellas encontrados:")
 imprimir_libros(libros_3, "Libros con rating de 3 estrellas encontrados:")
+imprimir_libros(libros_4, "Libros con rating de 4 estrellas encontrados:")
 imprimir_libros(libros_5, "Libros con rating de 5 estrellas encontrados:")
 
-for libro in libros_1 + libros_3 + libros_5:
+for libro in libros_1 + libros_2 + libros_3 + libros_4 + libros_5:
     insertar_libro(*libro)
 
 print("\n✅ Libros insertados correctamente en la base de datos.")

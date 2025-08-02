@@ -86,7 +86,7 @@ def obtener_detalle_libro(url_relativa):
     url_libro = "http://books.toscrape.com/catalogue/" + url_relativa.lstrip("./")
 
     try:
-        detalle = requests.get(url_libro, headers=headers, timeout=10)
+        detalle = requests.get(url_libro, headers=headers, timeout=5)
         detalle.raise_for_status()
         soup = BeautifulSoup(detalle.text, "html.parser")
 
@@ -142,7 +142,7 @@ def obtener_libros_por_rating(rating_objetivo="One", paginas=1):
             if rating_texto == rating_objetivo:
                 rating_numero = RATING_MAP.get(rating_texto, 0)
                 titulo = libro.h3.a["title"]
-                precio = libro.find("p", class_="price_color").text
+                precio = libro.find("p", class_="price_color").text.replace("Â", "")
                 url_relativa = libro.h3.a["href"]
 
                 genero, stock, url_completo = obtener_detalle_libro(url_relativa)

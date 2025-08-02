@@ -65,6 +65,7 @@ Género: Travel
 Precio: £45.17
 Rating: 2
 En stock: Sí
+
 🔐 Acceso al Proyecto
 Clona el repositorio y ejecuta los scripts:
 
@@ -75,6 +76,7 @@ python visualizar_libros.py
 🔑 Si deseas activar la búsqueda de autores por API, crea un archivo .env con este contenido:
 
 GOOGLE_BOOKS_API_KEY=tu_clave_aquí
+
 🛠️ Tecnologías Utilizadas
 Python 3.10+
 
@@ -91,11 +93,15 @@ Google Books API (opcional)
 📦 Para instalar dependencias:
 
 pip install -r requirements.txt
+
 (Si aún no lo creaste, puedes generarlo así:)
 
 pip freeze > requirements.txt
+
 👨‍💻 Persona Desarrolladora
+
 Nombre	GitHub	País
+
 Iván ✨	@Ivan-Ortiz1	🇵🇾 Paraguay
 
 💡 Ideas futuras

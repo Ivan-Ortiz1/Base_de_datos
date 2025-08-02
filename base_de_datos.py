@@ -10,7 +10,8 @@ load_dotenv()
 API_KEY = os.getenv("GOOGLE_BOOKS_API_KEY")
 
 # --- Variables ---
-url_base = "http://books.toscrape.com/catalogue/page-{}.html"
+BASE_URL = "http://books.toscrape.com/"
+CATALOGUE_URL = BASE_URL + "catalogue/"
 headers = {"User-Agent": "Mozilla/5.0"}
 cache_autores = {}
 
@@ -52,7 +53,6 @@ CREATE TABLE IF NOT EXISTS autor_libro (
 """
 )
 
-# --- Mapear rating de texto a número ---
 RATING_MAP = {"One": 1, "Two": 2, "Three": 3, "Four": 4, "Five": 5}
 
 
@@ -83,7 +83,7 @@ def buscar_autor_google_books(titulo):
 
 
 def obtener_detalle_libro(url_relativa):
-    url_libro = "http://books.toscrape.com/catalogue/" + url_relativa.lstrip("./")
+    url_libro = CATALOGUE_URL + url_relativa.lstrip("./")
 
     try:
         detalle = requests.get(url_libro, headers=headers, timeout=5)
@@ -92,7 +92,7 @@ def obtener_detalle_libro(url_relativa):
 
         # Género
         breadcrumb = soup.select("ul.breadcrumb li a")
-        genero = breadcrumb[2].text if len(breadcrumb) >= 3 else "Desconocido"
+        genero = breadcrumb[2].text.strip() if len(breadcrumb) >= 3 else "Desconocido"
 
         # Stock
         tabla = soup.find("table", class_="table table-striped")
@@ -104,55 +104,6 @@ def obtener_detalle_libro(url_relativa):
         stock = "Sin stock"
 
     return genero, stock, url_libro
-
-
-def obtener_total_paginas():
-    try:
-        response = requests.get(url_base.format(1), headers=headers, timeout=10)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
-        texto_paginacion = soup.select_one("li.current")
-        if texto_paginacion:
-            texto = texto_paginacion.text.strip()
-            partes = texto.split("of")
-            if len(partes) == 2:
-                return int(partes[1].strip())
-    except Exception as e:
-        print("⚠️ Error al obtener total de páginas:", e)
-    return 1
-
-
-def obtener_libros_por_rating(rating_objetivo="One", paginas=1):
-    libros = []
-
-    for pagina in range(1, paginas + 1):
-        url = url_base.format(pagina)
-        try:
-            response = requests.get(url, headers=headers, timeout=10)
-            response.raise_for_status()
-        except requests.exceptions.RequestException as e:
-            print(f"[!] Error en la página {pagina}:", e)
-            continue
-
-        soup = BeautifulSoup(response.text, "html.parser")
-        articulos = soup.find_all("article", class_="product_pod")
-
-        for libro in articulos:
-            rating_texto = libro.find("p", class_="star-rating")["class"][1]
-            if rating_texto == rating_objetivo:
-                rating_numero = RATING_MAP.get(rating_texto, 0)
-                titulo = libro.h3.a["title"]
-                precio = libro.find("p", class_="price_color").text.replace("Â", "")
-                url_relativa = libro.h3.a["href"]
-
-                genero, stock, url_completo = obtener_detalle_libro(url_relativa)
-                autor = buscar_autor_google_books(titulo)
-
-                libros.append(
-                    (autor, titulo, precio, genero, stock, url_completo, rating_numero)
-                )
-
-    return libros
 
 
 def obtener_o_insertar_id(nombre, tabla):
@@ -192,34 +143,75 @@ def insertar_libro(autor_str, titulo, precio, genero_str, stock, url, rating):
         )
 
     conn.commit()
+    print(f"✅ Insertado: {titulo}")
 
 
-def imprimir_libros(lista, descripcion):
-    if lista:
-        print(f"\n{descripcion}\n")
-        for autor, titulo, precio, genero, stock, link, rating in lista:
-            print(
-                f"Autor: {autor}\nTítulo: {titulo}\nPrecio: {precio}\nGénero: {genero}\nStock: {stock}\nRating: {rating}\nLink: {link}\n"
+def obtener_categorias():
+    categorias = {}
+    try:
+        response = requests.get(BASE_URL, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        links = soup.select("div.side_categories ul li ul li a")
+        for link in links:
+            nombre = link.text.strip()
+            href = link.get("href").replace("index.html", "")
+            categorias[nombre] = BASE_URL + href
+    except Exception as e:
+        print("⚠️ Error al obtener categorías:", e)
+    return categorias
+
+
+def obtener_libros_de_categoria(nombre_categoria, url_categoria):
+    libros = []
+    pagina = 1
+
+    while True:
+        url_pagina = (
+            url_categoria + f"page-{pagina}.html"
+            if pagina > 1
+            else url_categoria + "index.html"
+        )
+        try:
+            response = requests.get(url_pagina, headers=headers, timeout=10)
+            if response.status_code == 404:
+                break
+            response.raise_for_status()
+        except Exception as e:
+            print(f"[!] Error en {nombre_categoria}, página {pagina}: {e}")
+            break
+
+        soup = BeautifulSoup(response.text, "html.parser")
+        articulos = soup.find_all("article", class_="product_pod")
+        if not articulos:
+            break
+
+        for libro in articulos:
+            rating_texto = libro.find("p", class_="star-rating")["class"][1]
+            rating_numero = RATING_MAP.get(rating_texto, 0)
+            titulo = libro.h3.a["title"]
+            precio = libro.find("p", class_="price_color").text.replace("Â", "")
+            url_relativa = libro.h3.a["href"]
+
+            genero, stock, url_completo = obtener_detalle_libro(url_relativa)
+            autor = buscar_autor_google_books(titulo)
+
+            libros.append(
+                (autor, titulo, precio, genero, stock, url_completo, rating_numero)
             )
-    else:
-        print(f"¡No se encontraron {descripcion.lower()}!")
+
+        pagina += 1
+
+    return libros
 
 
-# --- Scraping e inserción ---
-total_paginas = obtener_total_paginas()
-libros_1 = obtener_libros_por_rating("One", paginas=total_paginas)
-libros_2 = obtener_libros_por_rating("Two", paginas=total_paginas)
-libros_3 = obtener_libros_por_rating("Three", paginas=total_paginas)
-libros_4 = obtener_libros_por_rating("Four", paginas=total_paginas)
-libros_5 = obtener_libros_por_rating("Five", paginas=total_paginas)
+# --- Ejecución principal ---
+categorias = obtener_categorias()
 
-imprimir_libros(libros_1, "Libros con rating de 1 estrella encontrados:")
-imprimir_libros(libros_2, "Libros con rating de 2 estrellas encontrados:")
-imprimir_libros(libros_3, "Libros con rating de 3 estrellas encontrados:")
-imprimir_libros(libros_4, "Libros con rating de 4 estrellas encontrados:")
-imprimir_libros(libros_5, "Libros con rating de 5 estrellas encontrados:")
+for nombre, url_categoria in categorias.items():
+    print(f"\n📚 Categoría: {nombre}")
+    libros = obtener_libros_de_categoria(nombre, url_categoria)
+    for libro in libros:
+        insertar_libro(*libro)
 
-for libro in libros_1 + libros_2 + libros_3 + libros_4 + libros_5:
-    insertar_libro(*libro)
-
-print("\n✅ Libros insertados correctamente en la base de datos.")
+print("\n✅ Todos los libros insertados correctamente.")

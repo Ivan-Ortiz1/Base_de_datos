@@ -23,29 +23,29 @@ cursor = conn.cursor()
 cursor.executescript(
     """
 CREATE TABLE IF NOT EXISTS autores (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nombre TEXT UNIQUE
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    nombre TEXT UNIQUE NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS generos (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nombre TEXT UNIQUE
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    nombre TEXT UNIQUE NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS libros (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    titulo TEXT,
-    precio TEXT,
-    stock TEXT,
-    url TEXT,
-    rating INTEGER,
-    genero_id INTEGER,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    titulo TEXT NOT NULL,
+    precio TEXT NOT NULL,
+    stock TEXT NOT NULL,
+    url TEXT NOT NULL,
+    rating INTEGER NOT NULL,
+    genero_id INTEGER NOT NULL,
     FOREIGN KEY (genero_id) REFERENCES generos(id)
 );
 
 CREATE TABLE IF NOT EXISTS autor_libro (
-    autor_id INTEGER,
-    libro_id INTEGER,
+    autor_id INTEGER NOT NULL,
+    libro_id INTEGER NOT NULL,
     PRIMARY KEY (autor_id, libro_id),
     FOREIGN KEY (autor_id) REFERENCES autores(id),
     FOREIGN KEY (libro_id) REFERENCES libros(id)
@@ -108,11 +108,11 @@ def obtener_detalle_libro(url_relativa):
 
 def obtener_o_insertar_id(nombre, tabla):
     cursor.execute(f"SELECT id FROM {tabla} WHERE nombre = ?", (nombre,))
-    resultado = cursor.fetchone()
+    resultado = cursor.fetchone() #averiguar
     if resultado:
         return resultado[0]
     cursor.execute(f"INSERT INTO {tabla} (nombre) VALUES (?)", (nombre,))
-    return cursor.lastrowid
+    return cursor.lastrowid # averiguar
 
 
 def insertar_libro(autor_str, titulo, precio, genero_str, stock, url, rating):
@@ -142,7 +142,7 @@ def insertar_libro(autor_str, titulo, precio, genero_str, stock, url, rating):
             (autor_id, libro_id),
         )
 
-    conn.commit()
+    conn.commit() #commit
     print(f"✅ Insertado: {titulo}")
 
 
@@ -154,8 +154,8 @@ def obtener_categorias():
         soup = BeautifulSoup(response.text, "html.parser")
         links = soup.select("div.side_categories ul li ul li a")
         for link in links:
-            nombre = link.text.strip()
-            href = link.get("href").replace("index.html", "")
+            nombre = link.text.strip() # es necesario
+            href = link.get("href").replace("index.html", "") # replace
             categorias[nombre] = BASE_URL + href
     except Exception as e:
         print("⚠️ Error al obtener categorías:", e)
@@ -187,7 +187,7 @@ def obtener_libros_de_categoria(nombre_categoria, url_categoria):
             break
 
         for libro in articulos:
-            rating_texto = libro.find("p", class_="star-rating")["class"][1]
+            rating_texto = libro.find("p", class_="star-rating")["class"][1] #"class" y _
             rating_numero = RATING_MAP.get(rating_texto, 0)
             titulo = libro.h3.a["title"]
             precio = libro.find("p", class_="price_color").text.replace("Â", "")

@@ -46,7 +46,7 @@ def construir_query(opcion):
 
     if opcion == "1":
         while True:
-            rating = input("⭐ Ingrese rating (1-5): ").strip()
+            rating = input(" Ingrese rating (1-5): ").strip()
             if rating.isdigit() and 1 <= int(rating) <= 5:
                 break
             print("❌ Rating inválido. Debe ser un número del 1 al 5.")
@@ -55,7 +55,7 @@ def construir_query(opcion):
 
     elif opcion == "2":
         while True:
-            precio_max = input("💰 Ingrese precio máximo (sin símbolo): ").strip()
+            precio_max = input(" Ingrese precio máximo (sin símbolo): ").strip()
             try:
                 float(precio_max)
                 break
